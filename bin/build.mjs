@@ -2,11 +2,18 @@
 /**
  * Release build.
  *
- * 1. Parses the YAML frontmatter in readme.md.
- * 2. Reads Version: from the plugin header, the single source of truth.
- * 3. Fails hard when stable_tag and the plugin version disagree.
- * 4. Writes readme.txt in wp.org format.
- * 5. Writes dist/simple-password-protection-<version>.zip.
+ * 1. Reads Version, Requires at least and Requires PHP from the plugin header.
+ * 2. Writes readme.txt in wp.org format, adding the header block that file needs.
+ * 3. Writes dist/simple-password-protection-<version>.zip.
+ *
+ * The wp.org header block is assembled here rather than kept in readme.md.
+ * readme.md is what people read on GitHub, and a YAML frontmatter block renders
+ * there as a stray table of release metadata above the actual description.
+ *
+ * Everything that also exists in the plugin header is read from it, so there is
+ * one place to change a version or a minimum requirement and no second copy to
+ * drift. Only the three fields wp.org asks for that have nowhere else to live
+ * are declared below.
  *
  * Pure Node 22 plus the system `zip` binary. No npm dependencies.
  */
@@ -25,7 +32,18 @@ const PLUGIN_FILE = path.join( ROOT, `${ SLUG }.php` );
 const DIST = path.join( ROOT, 'dist' );
 const STAGE = path.join( DIST, '.stage' );
 
-const REQUIRED_KEYS = [ 'contributors', 'tags', 'requires', 'tested', 'requires_php', 'stable_tag' ];
+/**
+ * wp.org readme fields with no counterpart in the plugin header.
+ *
+ * `tested` is the WordPress version the plugin has actually been exercised
+ * against, which is a claim about testing rather than a requirement, so it has
+ * no business in the plugin header.
+ */
+const WPORG = {
+	contributors: 'thomasguillot',
+	tags: 'password, password protect, private, maintenance, coming soon',
+	tested: '7.0',
+};
 
 const LICENSE = 'GPLv2 or later';
 const LICENSE_URI = 'https://www.gnu.org/licenses/gpl-2.0.html';
@@ -66,60 +84,21 @@ function fail( message ) {
 }
 
 /**
- * Splits a document into its YAML frontmatter and the remaining body.
- *
- * @param {string} source Full readme.md contents.
- * @return {{data: Object<string,string>, body: string}} Parsed frontmatter and body.
- */
-function parseFrontmatter( source ) {
-	const match = /^---\r?\n([\s\S]*?)\r?\n---[ \t]*\r?\n?/.exec( source );
-
-	if ( ! match ) {
-		fail( 'readme.md does not start with a YAML frontmatter block.' );
-	}
-
-	const data = {};
-
-	for ( const rawLine of match[ 1 ].split( /\r?\n/ ) ) {
-		const line = rawLine.trim();
-
-		if ( '' === line || line.startsWith( '#' ) ) {
-			continue;
-		}
-
-		const separator = line.indexOf( ':' );
-
-		if ( -1 === separator ) {
-			fail( `unparseable frontmatter line: ${ line }` );
-		}
-
-		const key = line.slice( 0, separator ).trim();
-		let value = line.slice( separator + 1 ).trim();
-
-		if (
-			( value.startsWith( '"' ) && value.endsWith( '"' ) && value.length > 1 ) ||
-			( value.startsWith( "'" ) && value.endsWith( "'" ) && value.length > 1 )
-		) {
-			value = value.slice( 1, -1 );
-		}
-
-		data[ key ] = value;
-	}
-
-	return { data, body: source.slice( match[ 0 ].length ) };
-}
-
-/**
- * Reads the Version: field from the plugin header.
+ * Reads one field from the plugin header block.
  *
  * @param {string} source Plugin bootstrap file contents.
- * @return {string} Version string.
+ * @param {string} label  Header label, e.g. "Version" or "Requires PHP".
+ * @return {string} Field value.
  */
-function readPluginVersion( source ) {
-	const match = /^[ \t]*\*?[ \t]*Version:[ \t]*(.+?)[ \t]*$/m.exec( source );
+function readHeaderField( source, label ) {
+	const pattern = new RegExp(
+		`^[ \\t]*\\*?[ \\t]*${ label.replace( /[.*+?^${}()|[\]\\]/g, '\\$&' ) }:[ \\t]*(.+?)[ \\t]*$`,
+		'm'
+	);
+	const match = pattern.exec( source );
 
 	if ( ! match ) {
-		fail( `no "Version:" line found in ${ path.relative( ROOT, PLUGIN_FILE ) }.` );
+		fail( `no "${ label }:" line found in ${ path.relative( ROOT, PLUGIN_FILE ) }.` );
 	}
 
 	return match[ 1 ];
@@ -204,11 +183,11 @@ function convertBody( lines ) {
 /**
  * Renders the full readme.txt.
  *
- * @param {Object<string,string>} front   Frontmatter values.
- * @param {string}                body    Markdown body.
+ * @param {Object<string,string>} meta Header values for the wp.org block.
+ * @param {string}                body Markdown body, verbatim from readme.md.
  * @return {string} readme.txt contents.
  */
-function renderReadmeTxt( front, body ) {
+function renderReadmeTxt( meta, body ) {
 	const lines = body.split( /\r?\n/ );
 	const titleIndex = lines.findIndex( ( line ) => /^#[ \t]+/.test( line ) );
 
@@ -220,12 +199,12 @@ function renderReadmeTxt( front, body ) {
 
 	const header = [
 		`=== ${ title } ===`,
-		`Contributors: ${ front.contributors }`,
-		`Tags: ${ front.tags }`,
-		`Requires at least: ${ front.requires }`,
-		`Tested up to: ${ front.tested }`,
-		`Requires PHP: ${ front.requires_php }`,
-		`Stable tag: ${ front.stable_tag }`,
+		`Contributors: ${ WPORG.contributors }`,
+		`Tags: ${ WPORG.tags }`,
+		`Requires at least: ${ meta.requires }`,
+		`Tested up to: ${ WPORG.tested }`,
+		`Requires PHP: ${ meta.requires_php }`,
+		`Stable tag: ${ meta.version }`,
 		`License: ${ LICENSE }`,
 		`License URI: ${ LICENSE_URI }`,
 		'',
@@ -313,24 +292,18 @@ function main() {
 		fail( `${ SLUG }.php not found.` );
 	}
 
-	const { data: front, body } = parseFrontmatter( fs.readFileSync( README_MD, 'utf8' ) );
+	const body = fs.readFileSync( README_MD, 'utf8' );
+	const pluginSource = fs.readFileSync( PLUGIN_FILE, 'utf8' );
 
-	const missing = REQUIRED_KEYS.filter( ( key ) => ! ( key in front ) || '' === String( front[ key ] ).trim() );
+	const meta = {
+		version: readHeaderField( pluginSource, 'Version' ),
+		requires: readHeaderField( pluginSource, 'Requires at least' ),
+		requires_php: readHeaderField( pluginSource, 'Requires PHP' ),
+	};
 
-	if ( missing.length ) {
-		fail( `readme.md frontmatter is missing required key(s): ${ missing.join( ', ' ) }` );
-	}
+	const version = meta.version;
 
-	const version = readPluginVersion( fs.readFileSync( PLUGIN_FILE, 'utf8' ) );
-
-	if ( front.stable_tag !== version ) {
-		fail(
-			`stable_tag "${ front.stable_tag }" in readme.md does not match Version "${ version }" ` +
-				`in ${ SLUG }.php. Make them the same and build again.`
-		);
-	}
-
-	fs.writeFileSync( README_TXT, renderReadmeTxt( front, body ), 'utf8' );
+	fs.writeFileSync( README_TXT, renderReadmeTxt( meta, body ), 'utf8' );
 	process.stdout.write( `build: wrote ${ path.relative( ROOT, README_TXT ) }\n` );
 
 	const zipPath = buildZip( version );

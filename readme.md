@@ -1,12 +1,3 @@
----
-contributors: thomasguillot
-tags: password, password protect, private, maintenance, coming soon
-requires: "6.7"
-tested: "7.0"
-requires_php: "7.4"
-stable_tag: "1.0.0"
----
-
 # Simple Password Protection
 
 Put a single shared password in front of your site, with your own logo on the gate.
