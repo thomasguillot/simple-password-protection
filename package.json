@@ -1,0 +1,15 @@
+{
+	"name": "simple-password-protection",
+	"private": true,
+	"description": "Build tooling for the Simple Password Protection WordPress plugin. The plugin version lives in simple-password-protection.php.",
+	"license": "GPL-2.0-or-later",
+	"author": "Thomas Guillot <https://thomasguillot.com>",
+	"type": "module",
+	"engines": {
+		"node": ">=22"
+	},
+	"scripts": {
+		"build": "node bin/build.mjs",
+		"graphics": "node bin/make-graphics.mjs"
+	}
+}

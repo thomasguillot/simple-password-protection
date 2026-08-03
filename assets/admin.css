@@ -1,0 +1,25 @@
+.spp-status--unset {
+	color: #b32d2e;
+}
+
+.spp-logo-preview {
+	margin: 0 0 8px;
+	padding: 12px;
+	max-width: 320px;
+	background: #f6f7f7;
+	border: 1px solid #dcdcde;
+	border-radius: 4px;
+}
+
+.spp-logo-preview img {
+	display: block;
+	max-width: 100%;
+	max-height: 84px;
+	height: auto;
+	margin: 0 auto;
+}
+
+.spp-logo-remove {
+	margin-left: 8px;
+	color: #b32d2e;
+}

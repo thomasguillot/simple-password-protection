@@ -1,0 +1,13 @@
+{
+	"name": "thomasguillot/simple-password-protection",
+	"description": "Put a single shared password in front of your WordPress site.",
+	"type": "wordpress-plugin",
+	"license": "GPL-2.0-or-later",
+	"authors": [
+		{ "name": "Thomas Guillot", "homepage": "https://thomasguillot.com" }
+	],
+	"require": { "php": ">=7.4" },
+	"require-dev": { "phpunit/phpunit": "^11.5 || ^12.0" },
+	"scripts": { "test": "phpunit" },
+	"config": { "optimize-autoloader": true }
+}

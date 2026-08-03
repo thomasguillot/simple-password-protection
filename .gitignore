@@ -1,0 +1,14 @@
+vendor/
+node_modules/
+
+# Release zips are attached to GitHub releases, never committed.
+dist/
+
+# Generated from readme.md by bin/build.mjs.
+readme.txt
+
+# Local planning and design notes. Working material, not part of the plugin.
+docs/
+
+.DS_Store
+.phpunit.result.cache
